@@ -19,9 +19,21 @@ export async function initCommand(options?: boolean): Promise<void>{
 
     console.log("init ran", options)
     try {
+
+        
         const proxyPort = await createFreePort(); // ts proxy port
         let memoryPort = await createFreePort(); // python memory engine port
+        const config = {
+            version: 1,
+            createdAt: new Date().toString(),
+            proxy: { host: "127.0.0.1", port: proxyPort },
+            memory: { host: "127.0.0.1", port: memoryPort },
+            upstream: { anthropic: "https://api.anthropic.com", openai: "https://api.openai.com/v1" },
+            agents: {}
 
+        }
+
+        const ledger = { version: 1, entries: [] }
         while (memoryPort === proxyPort) {
             memoryPort = await createFreePort();
         }
@@ -32,8 +44,8 @@ export async function initCommand(options?: boolean): Promise<void>{
         }
         
         // creating file
-        const data = JSON.stringify({version: "0.1.0", proxyPort, memoryPort}, null, 2);
-        const ledgeData = JSON.stringify({fileName: "", lineChanges: "", codeChanges: ""}, null, 2);
+        const data = JSON.stringify(config, null, 2);
+        const ledgeData = JSON.stringify(ledger, null, 2);
 
         const createDir = await mkdir(projectFolder, { recursive: true }); // using true to not throw error if directory already exists
         
