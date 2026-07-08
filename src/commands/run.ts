@@ -58,9 +58,29 @@ async function proxyFetch(req: Request, config: Configuration): Promise<Response
     const headers = new Headers(req.headers);
     headers.delete("host");
     headers.delete("content-length");
+    headers.delete("accept-encoding");
 
     console.log(`→ ${req.method} ${url.pathname}`);
+    try {
+        const upstream = await fetch(target, {
+            method: req.method,
+            headers,
+            body: req.body,
+            duplex: "half",
+        } as RequestInit);
 
+        const resHeaders = new Headers(upstream.headers);
+        resHeaders.delete("content-encoding");
+        resHeaders.delete("content-length");
+
+        return new Response(upstream.body, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers: resHeaders,
+        });
+    } catch(e) { 
+        console.log(e)
+    }
     return fetch(target, {
         method: req.method,
         headers: headers,
