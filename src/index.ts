@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { Command } from "commander";
 import { initCommand } from "./commands/init"
+import { runCommand } from "./commands/run"
 const program = new Command();
 
 program
@@ -11,5 +12,9 @@ program
 program.command("init")
     .description("Initalize project folder .memory/")
     .action(initCommand);
+
+program.command("run")
+    .description("Run project")
+    .action(runCommand);
 
 program.parseAsync();
