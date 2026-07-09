@@ -4,7 +4,7 @@ import path from "path";
 
 
 // global config type
-interface Configuration {
+export interface Configuration {
     proxy: {
         host: string;
         port: number;
@@ -38,7 +38,9 @@ export async function runCommand() {
         Bun.serve({
             hostname: config.proxy.host,
             port: config.proxy.port,
-            fetch(req) {
+            fetch(req, server) {
+
+                server.timeout(req, 0);
                 return proxyFetch(req, config)
             },
         });
@@ -50,8 +52,12 @@ export async function runCommand() {
 }
 
 
-async function proxyFetch(req: Request, config: Configuration): Promise<Response> {
+export async function proxyFetch(req: Request, config: Configuration): Promise<Response> {
     const url = new URL(req.url);
+    const raw = await req.clone().text();
+
+    console.log("request body:",raw.slice(0, 2000));
+
 
     const target: string = config.upstream.anthropic + url.pathname + url.search;
     
@@ -73,6 +79,7 @@ async function proxyFetch(req: Request, config: Configuration): Promise<Response
         resHeaders.delete("content-encoding");
         resHeaders.delete("content-length");
 
+
         return new Response(upstream.body, {
         status: upstream.status,
         statusText: upstream.statusText,
@@ -80,11 +87,8 @@ async function proxyFetch(req: Request, config: Configuration): Promise<Response
         });
     } catch(e) { 
         console.log(e)
+
+        return new Response("proxy error");
     }
-    return fetch(target, {
-        method: req.method,
-        headers: headers,
-        body: req.body,
-        duplex: "half",
-    }); 
+   
 }
