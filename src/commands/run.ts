@@ -80,11 +80,6 @@ export async function proxyFetch(req: Request, config: Configuration): Promise<R
     
     if (realUserTurn) {
         prompt = extractUserPrompt(parsed)
-        // TODO: call your Python memory service /context with { input: prompt }
-        //       (await fetch to `http://${config.memoryService.host}:${config.memoryService.port}/context`,
-        //        POST, JSON body, read back the { context } field)
-        //       Wrap this in try/catch — if Python is down, injection should FAIL SOFT:
-        //       log it and forward raw, never crash the user's request.
         let context = "";
         try {
 
@@ -113,11 +108,6 @@ export async function proxyFetch(req: Request, config: Configuration): Promise<R
         } catch (e) {
             console.log(e)
         }
-        // TODO: if context is a non-empty string:
-        //         const modified = spliceContext(parsed, context)
-        //         bodyToSend = JSON.stringify(modified)
-        //       else: leave bodyToSend = raw
-
         if (context) {
             const modified = spliceContext(parsed, context)
             bodyToSend = JSON.stringify(modified);
@@ -147,19 +137,26 @@ export async function proxyFetch(req: Request, config: Configuration): Promise<R
         resHeaders.delete("content-length");
 
 
-        
-        const [toClient, toAcculumator] = (upstream.body as ReadableStream<Uint8Array>).tee(); // value is not null
-        
-        accumulateStream(toAcculumator, prompt, config).catch((e) => {
-            console.log("error: ", e);
-        })
+        if (realUserTurn) {
+            const [toClient, toAcculumator] = (upstream.body as ReadableStream<Uint8Array>).tee(); // value is not null
+            
+            accumulateStream(toAcculumator, prompt, config).catch((e) => {
+                console.log("error: ", e);
+            })
 
-        return new Response(toClient, {
-        status: upstream.status,
-        statusText: upstream.statusText,
-        headers: resHeaders,
-        });
-    } catch(e) { 
+            return new Response(toClient, {
+            status: upstream.status,
+            statusText: upstream.statusText,
+            headers: resHeaders,
+            });
+        } else {
+            return new Response(upstream.body, {
+                status: upstream.status,
+                statusText: upstream.statusText,
+                headers:resHeaders
+            });
+        }
+   } catch(e) { 
         console.log(e)
 
         return new Response("proxy error", { status: 502 });
