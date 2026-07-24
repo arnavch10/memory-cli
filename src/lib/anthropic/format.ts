@@ -5,6 +5,16 @@ import type { Action } from "./buffer"; // adjust path
 //   Write / Edit / Read / Update -> input.file_path
 //   Bash                 -> input.command
 //   others               -> fall back to something readable
+
+
+const supportedTools = [
+  "Bash",
+  "Write",
+  "Edit",
+  "Update"
+]
+
+
 function describeInput(action: Action): string {
     const i = action.input ?? {};
     if (i.file_path) return i.file_path;
@@ -28,13 +38,19 @@ export function formatActions(prompt: string, narration: string, actions: Action
         lines.push("Actions taken:");
         for (const a of actions) {
           const what = describeInput(a);
+
+          // outcome of tool call
           const outcome = a.isError
             ? `FAILED: ${(a.result ?? "").slice(0, 200)}`
             : `success${a.result ? ": " + a.result.slice(0, 200) : ""}`;
-          
-          // sending everything else 
-          lines.push(`- ${a.tool} ${what} → ${outcome}`);
+          // only push tools that matter to qwen: bash, edit, write, update?
+          if (supportedTools.includes(a.tool)) {
+            lines.push(`- ${a.tool} ${what} → ${outcome}`);
+          } else {
+            continue 
+          }
           if (a.tool === "Write") {
+            // remove content from write
             const content: any = a.input?.content
             const allLines = content.split("\n")
             const firstLines = allLines.slice(0, 150);
@@ -44,13 +60,21 @@ export function formatActions(prompt: string, narration: string, actions: Action
               write = write + `\n[truncated: ${removedCount} more lines]`;
             }
             lines.push(`- ${a.tool} ${what} write -> ${write}`)
+
           } else if(a.tool === "Edit") {
             const before = a.input?.old_string;
             const after = a.input?.new_string;
             lines.push(`- ${a.tool} ${what} edit -> before: ${before} after: ${after}`)
+
+
+            // might not need update
           } else if(a.tool === "Update") {
             const update: any = a.input?.update;
             lines.push(`- ${a.tool} ${what} update -> ${update}`)
+
+          } else if (a.tool === "Bash") {
+            const result: any = a.input?.commands;
+            lines.push(`- ${a.tool} ${what} update -> ${result}`)
           }
 
         }
